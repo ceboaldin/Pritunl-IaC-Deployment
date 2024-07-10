@@ -1,0 +1,65 @@
+---
+- name: SetupPritunl
+  hosts: all
+  become: yes
+
+  tasks:
+  
+  - name: Update all packages to their latest version
+    ansible.builtin.apt:
+      name: "*"
+      state: latest
+
+  - name: Add Pritunl repository to sources list
+    ansible.builtin.copy:
+      dest: /etc/apt/sources.list.d/pritunl.list
+      content: |
+        deb http://repo.pritunl.com/stable/apt jammy main
+
+  - name: Add Pritunl repository GPG key
+    ansible.builtin.shell: |
+      curl https://raw.githubusercontent.com/pritunl/pgp/master/pritunl_repo_pub.asc | apt-key add -
+
+  - name: Add MongoDB repository to sources list
+    ansible.builtin.copy:
+      dest: /etc/apt/sources.list.d/mongodb-org-6.0.list
+      content: |
+        deb https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse
+
+  - name: Add MongoDB repository GPG key
+    ansible.builtin.shell: |
+      curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | apt-key add -
+
+  - name: Update apt package index
+    ansible.builtin.shell: sudo apt update
+
+  - name: Upgrade all packages
+    ansible.builtin.shell: sudo apt --assume-yes upgrade
+
+  - name: Install WireGuard and WireGuard tools
+    ansible.builtin.apt:
+      name:
+        - wireguard
+        - wireguard-tools
+      state: present
+      update_cache: yes
+
+  - name: Disable UFW
+    ansible.builtin.shell: sudo ufw disable
+
+  - name: Install Pritunl and MongoDB
+    ansible.builtin.apt:
+      name:
+        - pritunl
+        - mongodb-org
+      state: present
+      update_cache: yes
+
+  - name: Enable mongod and pritunl services
+    ansible.builtin.systemd:
+      name: "{{ item }}"
+      enabled: yes
+      state: started
+    loop:
+      - mongod
+      - pritunl
